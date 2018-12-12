@@ -115,8 +115,32 @@ abstract class Models extends Mysql
         else {
             $this->reset();
 
-            return false;
+            return null;
         }
+    }
+
+    public function load($id)
+    {
+        $this->where($this->pk, $id)->get();
+    }
+
+    public function save()
+    {
+        if (isset($this->{$this->pk}) && !empty($this->{$this->pk})){
+            $this->buildQuery('update');
+            $flg = 0;
+        }
+        else{
+            $this->buildQuery('insert');
+            $flg = 1;
+        }
+
+        $this->query($this->sql);
+
+        if ($flg == 1){
+            $this->{$this->pk} = $this->last_id();
+        }
+        return true;
     }
 
     protected function buildQuery($mode)
@@ -124,6 +148,14 @@ abstract class Models extends Mysql
         switch($mode){
             case 'select':
                 $this->buildSelectQuery();
+                break;
+
+            case 'insert':
+                $this->buildInsertQuery();
+                break;
+
+            case 'update':
+                $this->buildUpdateQuery();
                 break;
 
             default:
@@ -150,6 +182,52 @@ abstract class Models extends Mysql
             else{
                 $this->sql .= "LIMIT {$this->limit}, {$this->limit}";
             }
+        }
+    }
+
+    protected function buildInsertQuery()
+    {
+        $columns = $this->getDataColumns();
+
+        $this->sql = "INSERT INTO {$this->table} SET ";
+
+        $cond = []
+
+        foreach ($columns as $k => $v){
+            $cond .= "{$k} = '{$v}'";
+        }
+
+        $this->sql .= implode(', ', $cond);
+    }
+
+    protected function buildUpdateQuery()
+    {
+        $columns = $this->getDataColumns();
+
+        $this->sql = "UPDATE {$this->table} SET ";
+
+        $cond = []
+
+        foreach ($columns as $k => $v){
+            $cond .= "{$k} = '{$v}'";
+        }
+
+        $this->sql .= implode(', ', $cond);
+        $this->sql .= " WHERE {$this->pk} = '{$this->{$this->pk}}'";
+    }
+
+    protected function getDataColumns($type = 'keys')
+    {
+        $all = get_class_vars(get_class($this));
+        $vars = get_object_vars($this);
+
+        $diff = array_diff_key($vars, $all);
+
+        if ($type = 'data'){
+            return $diff;
+        }
+        else{
+            return array_keys($diff);
         }
     }
 
